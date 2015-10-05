@@ -27,20 +27,11 @@ Refresh promises are tracked so that only one refresh may be outstanding at any 
 
 Constructor for the auto-refresher.  Takes an options hash.  The following options are recognized:
 - url: Optional - The url to load from
-- request: Optional - A promisified version of the [request](https://github.com/request/request) library.  If not specified, then the library will use its own internal copy.  See below for how to promisify your own copy.
+- request: Optional - The [request](https://github.com/request/request) object to use for this object.  If not specified, then the library will use its own internal copy.  If specified, it will be promisifed by the library (if necessary).
 - requestDefaults - Optional - if using the internal version of Request, then these parameters are used by default for the requests.  Makes use of [request.defaults](https://github.com/request/request#requestdefaultsoptions).  Default is { method: "GET", json: true }.
 - refreshDuration: Optional - The time after loading a resource before it will be background refreshed after.  May be specified in milliseconds OR in a string recognized by the [ms library](https://github.com/rauchg/ms.js).  Default is 1 day.
 - expireDuration: Optional - The time after loading a resource before it will be forground refreshed after.  May be specified in milliseconds OR in a string recognized by the [ms library](https://github.com/rauchg/ms.js).  Default is 7 days.
 - doNotRefreshDuration: Optional - Minimum time between resource refreshes (unless force is specified).  May be specified in milliseconds OR in a string recognized by the [ms library](https://github.com/rauchg/ms.js).  Default is 5 minutes.
-
-To promisify your own copy of request: 
-```js
-var Promise = require("bluebird");
-var request = require("request");
-
-Promise.promisifyAll(request); 
-request.requestAsync = Promise.promisify(request);
-```
 
 ## refreshIfNeededAsync()
 Returns a promise that is resolved with the loaded data.
@@ -84,6 +75,10 @@ In most cases, it is expected that you would override this method.
 Emitted if an error occurs during refresh to allow processing of the error.
 
 If no listeners are registered, the error callstack is logged to console.warn.
+
+# Other
+
+- AutoRefresh.request exposes the promisified version of request used by the library.
 
 # EXAMPLES:
 
