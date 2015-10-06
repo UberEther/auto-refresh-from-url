@@ -3,7 +3,7 @@
 
 # Overview
 
-This library provides a class for building objects that load their data from a URL and periodically refresh the data.
+This library provides a class for building objects that load their data from a URL and periodically refresh the data.  For a complete example on using this library, see: [uberether-jwk](https://github.com/UberEther/jwk)
 
 Methods are based on [Bluebird](https://github.com/petkaantonov/bluebird) promises.  HTTP requests are handled by [request](https://github.com/request/request).
 

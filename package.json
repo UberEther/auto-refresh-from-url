@@ -1,6 +1,6 @@
 {
   "name": "auto-refresh-from-url",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Class for objects based on loading and periodic refreshing of data from a URL",
   "main": "lib",
   "repository": {
