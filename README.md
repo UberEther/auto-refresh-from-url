@@ -40,30 +40,31 @@ Returns a promise that is resolved with the loaded data.
 ## refreshNowAsync(force)
 Returns a promise that is resolved with the loaded data.
 - If an existing refresh is in progress, that promise is returned
-- If no URL is specified, the cached data is returned.
-	- If there is no cached data OR force is truthy, then processUrlData(null, null) is called to generate it.
 - If force is falsey and we have not been more than doNotRefreshBefore since the last refresh, the existing cached data is returned.
 
 If refreshing from a URL, the actions are as followed:
 - prepareRefreshRequest() is called to generate the request options.  Options may be changed by either specifying the requestDefaults option in the constructor or overriding this method.
-- request.requestAsync is called with the specified options
+- If the requestOptions includes a URL, then request.requestAsync is called with the specified options
 - doNotRefreshBefore is updated
 - If a 304 is received, the existing cached playload is returned
 - processDataUrl() is called to process the payload
-- All the state related to the payload is updated (refreshAt, expireAt, etab, lastModified
+- All the state related to the payload is updated (refreshAt, expireAt, etag, lastModified)
 - The promise is resolved with the new payload
 
-## prepareRefreshRequest()
+## prepareRefreshRequest(oldPayload)
 Function that returns the request options to obtain the necessary data.  It may also return a promise that resolves to the same.
 
 Default builds options that include the URL and conditional values for If-None-Match (if we have an etag) or If-Modified-Since (if we have a lastModified).
 
 In general, you should not need to override this method.  Instead, specify requestDefaults in the constructor options.
 
-## processUrlData(res, raw)
+If you wish to generate the new payload yourself, return null.
+
+## processUrlData(res, raw, oldPayload)
 Function that processes the raw response from the URL request and converts it into the object returned by refreshIfNeededAsync() and refreshNowAsync().  It may also return a promise that resolves to the same.
-- res is the HTTP response object from request
-- raw is the raw response from the request.  Depending on the request options, this may be a buffer, string, or object.  If you specify ```json:true``` in the request options, then it will be parsed as JSON.
+- res is the HTTP response object from request.  May be null if we the requestOptions was null.
+- raw is the raw response from the request.  Depending on the request options, this may be a buffer, string, or object.  If you specify ```json:true``` in the request options, then it will be parsed as JSON.  May be null if we the requestOptions was null.
+- oldPayload is the prior loaded payload
 
 The default implementation ensures the HTTP status code is 200 and then returns the raw result.
 

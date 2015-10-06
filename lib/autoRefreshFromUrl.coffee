@@ -3,12 +3,9 @@ Promise = require "bluebird"
 ms = require "ms"
 request = require "request"
 
-toMillis = (x) -> typeof x == "number" ? x : ms(x)
+toMillis = (x) -> if typeof x == "number" then x else ms(x)
 
-promisifyRequest = (request) ->
-    # Promisify request if needed
-    if !request.getAsync then Promise.promisifyAll request
-    if !request.requestAsync then request.requestAsync = Promise.promisify request
+promisifyRequest = (request) -> request.requestAsync ||= Promise.promisify request
 promisifyRequest request
 
 class AutoRefreshFromUrl extends events.EventEmitter
@@ -16,23 +13,24 @@ class AutoRefreshFromUrl extends events.EventEmitter
         @url = options.url
         
         @request = options.request || AutoRefreshFromUrl.request.defaults(options.requestDefaults || { json: true, method: "GET" })
-        @doNotRefreshDuration = toMillis options.doNotRefreshDuration || "5m"
-        @refreshDuration = toMillis options.refreshDuration || "1d"
-        @expireDuration = toMillis options.expireDuration || "7d"
-        @refreshAt = @expireAt = if @url then 0 else Number.MAX_SAFE_INTEGER
-        @doNotRefreshBefore = 0
+        @doNotRefreshDuration = toMillis if options.doNotRefreshDuration? then options.doNotRefreshDuration else "5m"
+        @refreshDuration = toMillis if options.refreshDuration? then options.refreshDuration else "1d"
+        @expireDuration = toMillis if options.expireDuration? then options.expireDuration else "7d"
+        @refreshAt = @expireAt = @doNotRefreshBefore = 0
         @console = options.console || console
 
         promisifyRequest @request # Promisify request if needed
 
     refreshIfNeededAsync: () ->
         now = Date.now()
-        if @refreshAt < now
+        if @refreshAt <= now
             promise = @refreshNowAsync()
-            if @expireAt < now then return promise
-            else promise.catch (err) ->
-                if !@emit "backgroundUrlRefreshError", err
-                    @console.warn "Unhandled error refreshing: #{err.stack || err.message || err}"
+            if @expireAt <= now
+                return promise
+            else
+                promise.catch (err) ->
+                    if !@emit "backgroundUrlRefreshError", err
+                        @console.warn "Unhandled error refreshing: #{err.stack || err.message || err}"
         
         return Promise.bind @, @payload
 
@@ -40,41 +38,32 @@ class AutoRefreshFromUrl extends events.EventEmitter
         # Only 1 load at a time...
         if @refreshPromise then return @refreshPromise
 
-        # Only valid if a URL is specified or we are not forcing and it is before the doNotRefreshBefore
+        # Ensure we are forcing OR it is after the doNotRefreshBefore
         return Promise.bind @, @payload if !force && Date.now() < @doNotRefreshBefore
 
-        if !@url
-            if @payload && !force then return Promise.bind @, @payload
-            @refreshPromise = Promise.bind @
-            .then () -> @processUrlData null, null
-            .then (rv) ->
-                @doNotRefreshBefore = Date.now() + @doNotRefreshDuration
-                @payload = rv
-                return rv
-            .finally () -> @refreshPromise = null
-            return @refreshPromise
-
         @refreshPromise = Promise.bind @
-        .then @prepareRefreshRequest
-        .then (reqOpts) -> @request.requestAsync reqOpts
+        .then () -> @prepareRefreshRequest @payload
+        .then (reqOpts) ->
+            if reqOpts?.url then @request.requestAsync reqOpts
+            else [null, null]
         .spread (res, raw) ->
             @doNotRefreshBefore = Date.now() + @doNotRefreshDuration
-            return @payload if res.statusCode == 304 # Not modified...
+            return @payload if res?.statusCode == 304 # Not modified...
 
-            Promise.bind @, [res, raw]
+            Promise.bind @, [res, raw, @payload]
             .spread @processUrlData
             .then (rv) ->
                 now = Date.now()
                 @refreshAt = now + @refreshDuration
                 @expireAt = now + @expireDuration
-                @etag = res.headers.etag
-                @lastModified = res.headers["last-modified"]
+                @etag = res?.headers.etag
+                @lastModified = res?.headers["last-modified"]
                 @payload = rv
                 return rv
         .finally () -> @refreshPromise = null
 
-    prepareRefreshRequest: () -> # May return value or promise
-        rv = url: @url
+    prepareRefreshRequest: (oldPayload) -> # May return value or promise
+        rv = url: @url, headers: {}
 
         # Set headers for conditional refreshes using etag or last-modified
         if @etag then rv.headers["If-None-Match"] = @etag
@@ -82,9 +71,9 @@ class AutoRefreshFromUrl extends events.EventEmitter
 
         return rv
 
-    processUrlData: (res, raw) -> # May return value or promise
-        if res.statusCode != 200
-            err = new Error "Failed to refresh url - status code: #{res.statusCode}: #{url}"
+    processUrlData: (res, raw, oldPayload) -> # May return value or promise
+        if res && res.statusCode != 200
+            err = new Error "Failed to refresh url - status code: #{res.statusCode}: #{@url}"
             err.rawResponse = raw
             throw err
         return raw
