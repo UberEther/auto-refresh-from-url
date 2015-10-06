@@ -21,6 +21,60 @@ You can also use refreshNowAsync() to force an immediate reload of the URL.  Thi
 
 Refresh promises are tracked so that only one refresh may be outstanding at any time.
 
+# EXAMPLES:
+
+## Javascript
+```js
+var util = require('util');
+var AutoRefresh = require('auto-refresh-from-url');
+
+function GoogleHomepageCache() {
+	AutoRefresh.call(this, {
+		url: "http://google.com"
+	});
+}
+util.inherits(CachedUrl, GoogleHomepageCache);
+
+GoogleHomepageCache.processUrlData = function(res, raw) {
+	if (res.statusCode != 200) throw new Error("Unexpected status code: "+res.statusCode);
+	var rv = { raw: raw };
+	// TODO: Add more processing here...
+	return rv;
+}
+
+googleHomepageCache = new GoogleHomepageCache();
+
+googleHomepageCache.refreshIfNeededAsync()
+.then(function(rv) {
+	console.log("%j", rv);
+})
+.catch(function(err) {
+	console.error("Refresh failed: "+(err.stack || err.message || err));
+});
+```
+
+## Coffeescript
+```coffeescript
+util = require 'util'
+AutoRefresh = require 'auto-refresh-from-url'
+
+class GoogleHomepageCache extends AutoRefresh
+	constructor: () ->
+		super url: "http://google.com"
+
+	processUrlData: (res, raw) ->
+		if res.statusCode != 200 then throw new Error "Unexpected status code: #{res.statusCode}"
+		rv = raw: raw
+		# TODO: Add more processing here...
+		return rv
+
+googleHomepageCache = new GoogleHomepageCache
+
+googleHomepageCache.refreshIfNeededAsync()
+.then (rv) -> console.log "%j", rv
+.catch (err) -> console.error "Refresh failed: #{err.stack || err.message || err}"
+```
+
 # APIs:
 
 ## AutoRefresh(options)
@@ -80,60 +134,6 @@ If no listeners are registered, the error callstack is logged to console.warn.
 # Other
 
 - AutoRefresh.request exposes the promisified version of request used by the library.
-
-# EXAMPLES:
-
-## Javascript
-```js
-var util = require('util');
-var AutoRefresh = require('auto-refresh-from-url');
-
-function GoogleHomepageCache() {
-	AutoRefresh.call(this, {
-		url: "http://google.com"
-	});
-}
-util.inherits(CachedUrl, GoogleHomepageCache);
-
-GoogleHomepageCache.processUrlData = function(res, raw) {
-	if (res.statusCode != 200) throw new Error("Unexpected status code: "+res.statusCode);
-	var rv = { raw: raw };
-	// TODO: Add more processing here...
-	return rv;
-}
-
-googleHomepageCache = new GoogleHomepageCache();
-
-googleHomepageCache.refreshIfNeededAsync()
-.then(function(rv) {
-	console.log("%j", rv);
-})
-.catch(function(err) {
-	console.error("Refresh failed: "+(err.stack || err.message || err));
-});
-```
-
-## Coffeescript
-```coffeescript
-util = require 'util'
-AutoRefresh = require 'auto-refresh-from-url'
-
-class GoogleHomepageCache extends AutoRefresh
-	constructor: () ->
-		super url: "http://google.com"
-
-	processUrlData: (res, raw) ->
-		if res.statusCode != 200 then throw new Error "Unexpected status code: #{res.statusCode}"
-		rv = raw: raw
-		# TODO: Add more processing here...
-		return rv
-
-googleHomepageCache = new GoogleHomepageCache
-
-googleHomepageCache.refreshIfNeededAsync()
-.then (rv) -> console.log "%j", rv
-.catch (err) -> console.error "Refresh failed: #{err.stack || err.message || err}"
-```
 
 # Contributing
 
