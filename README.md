@@ -5,7 +5,9 @@
 
 This library provides a class for building objects that load their data from a URL and periodically refresh the data.  For a complete example on using this library, see: [uberether-jwk](https://github.com/UberEther/jwk)
 
-Methods are based on [Bluebird](https://github.com/petkaantonov/bluebird) promises.  HTTP requests are handled by [request](https://github.com/request/request).
+Methods are based on [Bluebird](https://github.com/petkaantonov/bluebird) promises.  If you require callbacks, you can use the [Bluebird nodeify method](https://github.com/petkaantonov/bluebird/blob/master/API.md#nodeifyfunction-callback--object-options---promise).  For example: ```foo.somethingTharReturnsPromise().nodeify(callback);```
+
+HTTP requests are handled by [request](https://github.com/request/request).  You can control HTTP options via request or requestOptions in the constructor options.
 
 The expected pattern is you will create a subclass of the class returned by this library.  This subclass will then override the methods prepareRefreshRequest() and processUrlData() as necessary.  For a good example on subclassing in Node, see the documentation on [subclassing the event emitter](https://nodejs.org/api/events.html#events_inheriting_from_eventemitter)
 
