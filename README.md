@@ -129,9 +129,11 @@ In most cases, it is expected that you would override this method.
 # Events:
 
 ## backgrounUrlRefreshError, err
-Emitted if an error occurs during refresh to allow processing of the error.
+Emitted if an error occurs during an unforced refresh (```refreshNowAsync(false)``` or ```refreshIfNeededAsync()``` when expired) to allow processing of the error.
 
 If no listeners are registered, the error callstack is logged to console.warn.
+
+IF the refresh is forced, then the error will be used to reject the promise.
 
 # Other
 

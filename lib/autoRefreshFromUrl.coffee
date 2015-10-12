@@ -24,13 +24,9 @@ class AutoRefreshFromUrl extends events.EventEmitter
     refreshIfNeededAsync: () ->
         now = Date.now()
         if @refreshAt <= now
-            promise = @refreshNowAsync()
-            if @expireAt <= now
-                return promise
-            else
-                promise.catch (err) ->
-                    if !@emit "backgroundUrlRefreshError", err
-                        @console.warn "Unhandled error refreshing: #{err.stack || err.message || err}"
+            expired = @expireAt <= now
+            promise = @refreshNowAsync expired
+            if expired then return promise
         
         return Promise.bind @, @payload
 
@@ -42,11 +38,15 @@ class AutoRefreshFromUrl extends events.EventEmitter
         return Promise.bind @, @payload if !force && Date.now() < @doNotRefreshBefore
 
         @refreshPromise = Promise.bind @
-        .then () -> @prepareRefreshRequest @payload
+        .then () ->
+            # Set do not refresh first thing in case somehting fails...
+            @doNotRefreshBefore = Date.now() + @doNotRefreshDuration
+            @prepareRefreshRequest @payload
         .then (reqOpts) ->
             if reqOpts?.url then @request.requestAsync reqOpts
             else [null, null]
         .spread (res, raw) ->
+            # Reset do not refresh to account for the time it took to load...
             @doNotRefreshBefore = Date.now() + @doNotRefreshDuration
             return @payload if res?.statusCode == 304 # Not modified...
 
@@ -60,6 +60,13 @@ class AutoRefreshFromUrl extends events.EventEmitter
                 @lastModified = res?.headers["last-modified"]
                 @payload = rv
                 return rv
+
+        .catch (err) ->
+            if force then throw err
+            if !@emit "backgroundUrlRefreshError", err
+                @console.warn "Unhandled error refreshing: #{err.stack || err.message || err}"
+            return @payload
+            
         .finally () -> @refreshPromise = null
 
     prepareRefreshRequest: (oldPayload) -> # May return value or promise
