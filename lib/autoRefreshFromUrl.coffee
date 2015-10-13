@@ -5,21 +5,18 @@ request = require "request"
 
 toMillis = (x) -> if typeof x == "number" then x else ms(x)
 
-promisifyRequest = (request) -> request.requestAsync ||= Promise.promisify request
-promisifyRequest request
-
 class AutoRefreshFromUrl extends events.EventEmitter
     constructor: (options = {}) ->
         @url = options.url
         
-        @request = options.request || AutoRefreshFromUrl.request.defaults(options.requestDefaults || { json: true, method: "GET" })
+        request = options.request || AutoRefreshFromUrl.request.defaults(options.requestDefaults || { json: true, method: "GET" })
+        @requestAsync = Promise.promisify(request).bind(request)
+
         @doNotRefreshDuration = toMillis if options.doNotRefreshDuration? then options.doNotRefreshDuration else "5m"
         @refreshDuration = toMillis if options.refreshDuration? then options.refreshDuration else "1d"
         @expireDuration = toMillis if options.expireDuration? then options.expireDuration else "7d"
         @refreshAt = @expireAt = @doNotRefreshBefore = 0
         @console = options.console || console
-
-        promisifyRequest @request # Promisify request if needed
 
     refreshIfNeededAsync: () ->
         now = Date.now()
@@ -43,7 +40,7 @@ class AutoRefreshFromUrl extends events.EventEmitter
             @doNotRefreshBefore = Date.now() + @doNotRefreshDuration
             @prepareRefreshRequest @payload
         .then (reqOpts) ->
-            if reqOpts?.url then @request.requestAsync reqOpts
+            if reqOpts?.url then @requestAsync reqOpts
             else [null, null]
         .spread (res, raw) ->
             # Reset do not refresh to account for the time it took to load...

@@ -26,7 +26,7 @@ describe "AutoRefresh", () ->
 
     it "should construct with correct defaults", () ->
         t = new AutoRefresh
-        expect(t.request.requestAsync).to.be.ok
+        expect(t.requestAsync).to.be.ok
         expect(t.url).to.equal(undefined)
         expect(t.doNotRefreshDuration).to.equal(5 * 60 * 1000)
         expect(t.refreshDuration).to.equal(24 * 60 * 60 * 1000)
@@ -47,8 +47,7 @@ describe "AutoRefresh", () ->
             expireDuration: "3m"
             console: t3
 
-        expect(t.request).to.equal(t2)
-        expect(t.request.requestAsync).to.be.ok
+        expect(t.requestAsync).to.be.ok
         expect(t.url).to.equal("url")
         expect(t.doNotRefreshDuration).to.equal(1 * 60 * 1000)
         expect(t.refreshDuration).to.equal(2 * 60 * 1000)
@@ -58,7 +57,7 @@ describe "AutoRefresh", () ->
         expect(t.doNotRefreshBefore).to.equal(0)
         expect(t.console).to.equal(t3)
 
-        t.request.requestAsync()
+        t.requestAsync()
         .then (rv) -> expect(rv).to.equal("test: 2")
         .then () -> done()
         .catch done
