@@ -76,9 +76,9 @@ class AutoRefreshFromUrl extends events.EventEmitter
         return rv
 
     processUrlData: (res, raw, oldPayload) -> # May return value or promise
-        if res && res.statusCode != 200
+        if res && res.statusCode != 200 && res.statusCode != 201
             err = new Error "Failed to refresh url - status code: #{res.statusCode}: #{res?.request?.href || @url}"
-            err.rawResponse = raw
+            err.response = raw
             throw err
         return raw
 
