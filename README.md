@@ -1,143 +1,137 @@
 [![Build Status](https://travis-ci.org/UberEther/auto-refresh-from-url.svg?branch=master)](https://travis-ci.org/UberEther/auto-refresh-from-url)
 [![NPM Status](https://badge.fury.io/js/auto-refresh-from-url.svg)](http://badge.fury.io/js/auto-refresh-from-url)
 
+# TODO:
+- [ ] Rename project - it is now more general than the original name of ```auto-refresh-from-url```
+
 # Overview
 
-This library provides a class for building objects that load their data from a URL and periodically refresh the data.  For a complete example on using this library, see: [uberether-jwk](https://github.com/UberEther/jwk)
+This library provides a class for building objects that load their data from a URL (or other sources) and periodically refresh the data.  For a complete example on using this library, see: [uberether-jwk](https://github.com/UberEther/jwk)
 
 Methods are based on [Bluebird](https://github.com/petkaantonov/bluebird) promises.  If you require callbacks, you can use the [Bluebird nodeify method](https://github.com/petkaantonov/bluebird/blob/master/API.md#nodeifyfunction-callback--object-options---promise).  For example: ```foo.somethingTharReturnsPromise().nodeify(callback);```
 
-HTTP requests are handled by [request](https://github.com/request/request).  You can control HTTP options via request or requestOptions in the constructor options.
+HTTP requests are handled by [request](https://github.com/request/request).  You can control HTTP options via request or requestDefaults in the constructor options.
 
-The expected pattern is you will create a subclass of the class returned by this library.  This subclass will then override the methods prepareRefreshRequest() and processUrlData() as necessary.  For a good example on subclassing in Node, see the documentation on [subclassing the event emitter](https://nodejs.org/api/events.html#events_inheriting_from_eventemitter)
+The library is based on loader classes which provide the following methods:
+- A ```loadAsync(check)``` method which returns a bluebird promise that resolves to the processed data
+    - If check is not truthy, then the class may return cached data
+    - If check is truthy, then the class should check and update cached data
+- A ```reset()``` method to force any cached data to be cleared
 
-When using your new class, you should call refreshIfNeededAsync() to obtain a promise for the required data.
-- Refreshes ONLY happen on a call to refreshIfNeededAsync() or refreshNowAsync().  They are not timed to occur automatically.
-- On the initial request, the URL specified is loaded, processed, and the promise is not resolved until this is complete.
-- On subsequent requests, the cached copy is normally returned
-- Once the refreshDuration is hit, the promise is resolved with the cached copy immediately, but the data is updated and processed in background
-- Once the expirationDuration is hit, the data is updated and processed prior to resolving the promise
-- IF multiple refreshes occur in less than the doNotRefreshDuration, then the refresh request is ignored
 
-You can also use refreshNowAsync() to force an immediate reload of the URL.  This function will honor doNotRefreshDuration UNLESS a parameter of true is passed in (to force the refresh).
+The following types of loaders are provided:
+- ```StaticLoader``` which always returns the object passed into the constructor
+- ```FileLoader``` which loads data from a file.  A processor method may be provided to transform the data.  The class will establish a file monitor to invalidate the cached data if the file is modified.
+- ```UrlLoader``` which loads data from a URL.  A processor method may be provided to transform the data.  The class will track the etag and last-modified result headers and conditionally load updates when checking.
+- ```CachedLoader``` which tracks when the objects were last checked for updates and will conditionally request checks automatically.  This class also prevents multiple concurrent load requests from being executed and rate limits the check requests.  This class does not directly load data - a loader of another type must be provided in the constructor.
 
-Refresh promises are tracked so that only one refresh may be outstanding at any time.
+In general, it is expected that most applications will instantiate a ```CachedLoader``` wrapping another loader.
 
-# EXAMPLES:
-
-## Javascript
+# Example
 ```js
-var util = require('util');
-var AutoRefresh = require('auto-refresh-from-url');
+var Loaders = require("auto-refresh-from-url");
 
-function GoogleHomepageCache() {
-	AutoRefresh.call(this, {
-		url: "http://google.com"
-	});
-}
-util.inherits(CachedUrl, GoogleHomepageCache);
+var urlLoader = new Loaders.UrlLoader("https://google.com");
+var cachedLoader = new Loaders.CachedLoader(urlLoader);
 
-GoogleHomepageCache.processUrlData = function(res, raw) {
-	if (res.statusCode != 200) throw new Error("Unexpected status code: "+res.statusCode);
-	var rv = { raw: raw };
-	// TODO: Add more processing here...
-	return rv;
-}
-
-googleHomepageCache = new GoogleHomepageCache();
-
-googleHomepageCache.refreshIfNeededAsync()
-.then(function(rv) {
-	console.log("%j", rv);
-})
-.catch(function(err) {
-	console.error("Refresh failed: "+(err.stack || err.message || err));
-});
+cachedLoader.loadAsync().then(funciton(val) { console.log("%j", val.payload); });
 ```
 
-## Coffeescript
-```coffeescript
-util = require 'util'
-AutoRefresh = require 'auto-refresh-from-url'
+# API Docs
+## Class: StaticLoader
+Class that "loads" static values
 
-class GoogleHomepageCache extends AutoRefresh
-	constructor: () ->
-		super url: "http://google.com"
+### new StaticLoader(value)
+Instaniates a new StaticLoader that always returns ```value```
 
-	processUrlData: (res, raw) ->
-		if res.statusCode != 200 then throw new Error "Unexpected status code: #{res.statusCode}"
-		rv = raw: raw
-		# TODO: Add more processing here...
-		return rv
+### StaticLoader.loadAsync(check)
+Returns a promise which resolves to an object with 2 properties:
+- payload: The value passed into the constructor
+- loaded: Always false
 
-googleHomepageCache = new GoogleHomepageCache
+### StaticLoader.reset()
+No-op method for compatiblity with the loader signature
 
-googleHomepageCache.refreshIfNeededAsync()
-.then (rv) -> console.log "%j", rv
-.catch (err) -> console.error "Refresh failed: #{err.stack || err.message || err}"
-```
+## FileLoader
+Class that loads values from a file.  A file monitor may be established by default to monitor for changes.
 
-# APIs:
+### new FileLoader(fileName, options)
+Constructs a new loader for the specified file.
 
-## AutoRefresh(options)
+Options allowed are:
+- doNotMonitor: Do not establish a monitor for the file.  The file will be reloaded on initial request or if check is specified on loadAsync.
+- processor: A function that takes the loaded value and returns the value to return from loadAsync OR a promise for said value
+- default: A value to return if the file is missing.  This value is NOT passed to the processor.  If not set, then errors will be thrown if the file is not found.
+- readOpts: The options to pass to readFile - defaults to ```{ encoding: "utf8", flag: "r" }```
 
-Constructor for the auto-refresher.  Takes an options hash.  The following options are recognized:
-- url: Optional - The url to load from
-- request: Optional - The [request](https://github.com/request/request) object to use for this object.  If not specified, then the library will use its own internal copy.  If specified, it will be promisifed by the library (if necessary).
-- requestDefaults - Optional - if using the internal version of Request, then these parameters are used by default for the requests.  Makes use of [request.defaults](https://github.com/request/request#requestdefaultsoptions).  Default is { method: "GET", json: true }.
-- refreshDuration: Optional - The time after loading a resource before it will be background refreshed after.  May be specified in milliseconds OR in a string recognized by the [ms library](https://github.com/rauchg/ms.js).  Default is 1 day.
-- expireDuration: Optional - The time after loading a resource before it will be forground refreshed after.  May be specified in milliseconds OR in a string recognized by the [ms library](https://github.com/rauchg/ms.js).  Default is 7 days.
-- doNotRefreshDuration: Optional - Minimum time between resource refreshes (unless force is specified).  May be specified in milliseconds OR in a string recognized by the [ms library](https://github.com/rauchg/ms.js).  Default is 5 minutes.
+### FileLoader.loadAsync(check)
+Returns a promise which resolves to an object with 2 properties:
+- payload: The value loaded and transformed by the processor option
+- loaded: True if new data was loaded, false if cached values were used
 
-## refreshIfNeededAsync()
-Returns a promise that is resolved with the loaded data.
-- If the data is expired, it is not resolved until the data is refreshed.
+New data is loaded if it was never loaded, has been reset, or if the file changed.
 
-## refreshNowAsync(force)
-Returns a promise that is resolved with the loaded data.
-- If an existing refresh is in progress, that promise is returned
-- If force is falsey and we have not been more than doNotRefreshBefore since the last refresh, the existing cached data is returned.
+### FileLoader.reset()
+Resets all cached data in the loader, forcing a reload of the file on the next loadAsync request.
 
-If refreshing from a URL, the actions are as followed:
-- prepareRefreshRequest() is called to generate the request options.  Options may be changed by either specifying the requestDefaults option in the constructor or overriding this method.
-- If the requestOptions includes a URL, then request.requestAsync is called with the specified options
-- doNotRefreshBefore is updated
-- If a 304 is received, the existing cached playload is returned
-- processDataUrl() is called to process the payload
-- All the state related to the payload is updated (refreshAt, expireAt, etag, lastModified)
-- The promise is resolved with the new payload
+Note that if a load is in-progress when reset() is called, the load already in progress will be retained.
 
-## prepareRefreshRequest(oldPayload)
-Function that returns the request options to obtain the necessary data.  It may also return a promise that resolves to the same.
+## UrlLoader
+Class that loads values using HTTP/HTTPS.  When checking for changes, etags and last-modified headers may be used.
 
-Default builds options that include the URL and conditional values for If-None-Match (if we have an etag) or If-Modified-Since (if we have a lastModified).
+## UrlLoader.request
+The copy of request used by the URL loader (if not overridden in options)
 
-In general, you should not need to override this method.  Instead, specify requestDefaults in the constructor options.
+### new UrlLoader(url, options)
+Constructs a new loader for the specified url.
 
-If you wish to generate the new payload yourself, return null.
+Options allowed are:
+- request: A pre-configured copy of request for making loads from.  If not specified, UrlLoader.request will be used.
+- requestDefaults: IF options.request was not specified, then these options will be used as defaults in the request call.  NOT USED if options.request is specified.  Default is ```{ json: true, method: "GET" }```
+- ignoreEtag: If true, then etag headers are ignored and not used when checking for modified content
+- ignoreLastModified: If true, then last-modified headers are ignored and not used when checking for modified content
+- allowedResultCodes: Array of result codes considered to be a success.  Default is ```[200]```.
+- processor: A function that takes the loaded value and returns the value to return from loadAsync OR a promise for said value
 
-## processUrlData(res, raw, oldPayload)
-Function that processes the raw response from the URL request and converts it into the object returned by refreshIfNeededAsync() and refreshNowAsync().  It may also return a promise that resolves to the same.
-- res is the HTTP response object from request.  May be null if we the requestOptions was null.
-- raw is the raw response from the request.  Depending on the request options, this may be a buffer, string, or object.  If you specify ```json:true``` in the request options, then it will be parsed as JSON.  May be null if we the requestOptions was null.
-- oldPayload is the prior loaded payload
+### UrlLoader.loadAsync(check)
+Returns a promise which resolves to an object with 2 properties:
+- payload: The value loaded and transformed by the processor option
+- loaded: True if new data was loaded, false if cached values were used
 
-The default implementation ensures the HTTP status code is 200 and then returns the raw result.
+The URL is checked if data has never been loaded, check is true, or if the loader was reset.
 
-In most cases, it is expected that you would override this method.
+### UrlLoader.reset()
+Resets all cached data in the loader, forcing a reload of the data on the next loadAsync request.
 
-# Events:
+Note that if a load is in-progress when reset() is called, the load already in progress will be retained.
 
-## backgrounUrlRefreshError, err
-Emitted if an error occurs during an unforced refresh (```refreshNowAsync(false)``` or ```refreshIfNeededAsync()``` when expired) to allow processing of the error.
 
-If no listeners are registered, the error callstack is logged to console.warn.
+## CachedLoader
+This is a wrapper loader to apply dynamic cache refreshing to a child loader.  It provides the following:
+- Assurance that only one low-level load is outstanding at a time
+- Minimum time between checks for updates
+- Automatic background refresh after a certain time
+- Expiration of cached data after a certain time
 
-IF the refresh is forced, then the error will be used to reject the promise.
+### new CachedLoader(childLoader, options)
+Constructs a new cached loader that uses childLoader for low-level loading.
+Options allowed are:
+- doNotCheckDuration: Minimum duration allowed between checking for updates.  May be milliseconds or an ms library compatible string.  Default is: ```"5m"```.
+- refreshDuration: Time period after which a load will trigger a background check of cached data.  May be milliseconds or an ms library compatible string.  Default is: ```"1d"```.
+- expireDuration: Time period after which the cache will be cleared to force an update of the data.  May be milliseconds or an ms library compatible string.  Default is: ```"7d"```.
+- console: Where to log background loading errors.  Must be a console compatible object.  Default is the JS console object.
 
-# Other
+### CachedLoader.loadAsync(check)
+Returns a promise which resolves to an object with 2 properties:
+- payload: The value loaded and transformed by the processor option
+- loaded: True if new data was loaded, false if cached values were used
 
-- AutoRefresh.request exposes the promisified version of request used by the library.
+### CachedLoader.reset()
+Resets all cached data and timers.
+
+### CachedLoader Event: backgroundRefreshError
+If an error occurs in the background refresh, this event is emitted with the error as the argument.  If there are NO listeners to this event, then an error is logged using ```options.console.warn```.
+
 
 # Contributing
 

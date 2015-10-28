@@ -1,4 +1,7 @@
-- v0.1.1: Development
+- v0.2.0: Major rework (not backwards compatible)
+    - Refactored into multiple independent loaders
+
+- v0.1.1: Development (never released)
 	- Minor readme updates
 	- Do not throw error on refresh promise unless forced
 	- Modify how request is promisified so we do not modify original object
