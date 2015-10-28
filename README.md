@@ -24,6 +24,7 @@ The following types of loaders are provided:
 - ```FileLoader``` which loads data from a file.  A processor method may be provided to transform the data.  The class will establish a file monitor to invalidate the cached data if the file is modified.
 - ```UrlLoader``` which loads data from a URL.  A processor method may be provided to transform the data.  The class will track the etag and last-modified result headers and conditionally load updates when checking.
 - ```CachedLoader``` which tracks when the objects were last checked for updates and will conditionally request checks automatically.  This class also prevents multiple concurrent load requests from being executed and rate limits the check requests.  This class does not directly load data - a loader of another type must be provided in the constructor.
+- You are welcome to use your own objects also - just ensure you implement loadAsync and reset in a compatible manner.
 
 In general, it is expected that most applications will instantiate a ```CachedLoader``` wrapping another loader.
 

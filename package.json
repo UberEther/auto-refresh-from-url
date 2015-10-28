@@ -1,7 +1,7 @@
 {
   "name": "auto-refresh-from-url",
   "version": "0.2.0",
-  "description": "Class for objects based on loading and periodic refreshing of data from a URL",
+  "description": "Class for objects based on loading and periodic refreshing of data from a URL (and other sources)",
   "main": "lib",
   "repository": {
     "type": "git",
