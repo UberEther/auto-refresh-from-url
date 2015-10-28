@@ -5,7 +5,7 @@ _request = require "request"
 class UrlLoader extends events.EventEmitter
     constructor: (@url, options = {}) ->
         request = options.request || UrlLoader.request.defaults(options.requestDefaults || { json: true, method: "GET" })
-        @requestAsync = Promise.promisify(request).bind(request)
+        @requestAsync = Promise.promisify(request, multiArgs: true, context: request)
         @ignoreEtag = options.ignoreEtag
         @ignoreLastModified = options.ignoreLastModified
         @allowedResultCodes = options.allowedResultCodes || [ 200 ]
