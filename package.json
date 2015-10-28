@@ -22,10 +22,10 @@
     "test-cov": "istanbul cover --config test/istanbul.yml node_modules/mocha/bin/_mocha"
   },
   "dependencies": {
-    "bluebird": "^2.9.13",
+    "bluebird": "^3.0.0",
     "coffee-script": "^1.9.2",
     "ms": "^0.7.1",
-    "request": "^2.64.0"
+    "request": "^2.65.0"
   },
 
   "devDependencies": {
