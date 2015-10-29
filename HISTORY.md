@@ -1,4 +1,7 @@
-- v0.2.0: Major rework (not backwards compatible)
+- v0.2.1: IN DEVELOPMENT
+    - Added basic sample Mongo and IORedis loaders
+
+- v0.2.0: Major rework (not backwards compatible) (released 10/28/2015)
     - Refactored into multiple independent loaders
 
 - v0.1.1: Development (never released)
